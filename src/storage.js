@@ -1,4 +1,3 @@
-<script>
 (function () {
   var LS_KEY = "demo_sqlite_db_v1";
 
@@ -20,4 +19,3 @@
   window.App = window.App || {};
   window.App.Storage = { saveDBBytes: saveDBBytes, loadDBBytes: loadDBBytes };
 })();
-</script>
