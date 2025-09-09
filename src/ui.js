@@ -1,4 +1,3 @@
-<script>
 (function () {
   function bind(dbApi) {
     var out = document.getElementById("out");
@@ -59,4 +58,3 @@
   window.App = window.App || {};
   window.App.UI = { bind: bind };
 })();
-</script>
