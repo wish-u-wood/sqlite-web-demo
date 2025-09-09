@@ -1,5 +1,6 @@
 (function () {
-  var SQL_JS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2";
+  var SQL_JS_CDN = (window.App && window.App.Config && window.App.Config.SQL_JS_CDN) ||
+                   "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2";
   var SQL = null, db = null;
 
   function persist() {
@@ -32,34 +33,30 @@
   }
 
   function init(callback) {
-    if (!window.initSqlJs) {
-      callback(new Error("sql.js failed to load"));
-      return;
-    }
-    window.initSqlJs({
-      locateFile: function (file) { return SQL_JS_CDN + "/" + file; }
-    }).then(function (SQLModule) {
-      SQL = SQLModule;
-      var bytes = window.App.Storage.loadDBBytes();
-      db = bytes ? new SQL.Database(bytes) : new SQL.Database();
-      if (!bytes) {
-        db.run(
-          "CREATE TABLE IF NOT EXISTS notes (" +
-          "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-          "title TEXT NOT NULL," +
-          "content TEXT NOT NULL," +
-          "created_at TEXT NOT NULL DEFAULT (datetime('now'))" +
-          ");" +
-          "INSERT INTO notes (title, content) VALUES ('Hello','This is SQLite running in your browser');"
-        );
-        persist();
-      }
-      callback(null, api);
-    }).catch(function (err) {
-      callback(err);
-    });
-  }
+    if (!window.initSqlJs) { callback(new Error("sql.js failed to load")); return; }
 
+    window.initSqlJs({ locateFile: function (file) { return SQL_JS_CDN + "/" + file; } })
+      .then(function (SQLModule) {
+        SQL = SQLModule;
+        var bytes = window.App.Storage.loadDBBytes();
+        db = bytes ? new SQL.Database(bytes) : new SQL.Database();
+
+        if (!bytes) {
+          // Load schema and seed data from external file
+          fetch("./src/schema.sql")
+            .then(function (r){ return r.text(); })
+            .then(function (sqlText){
+              db.run(sqlText);
+              persist();
+              callback(null, api);
+            })
+            .catch(function (err){ callback(err); });
+        } else {
+          callback(null, api);
+        }
+      })
+      .catch(function (err) { callback(err); });
+  }
   var api = {
     init: init,
     exec: exec,
