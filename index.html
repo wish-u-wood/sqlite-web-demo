@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SQLite (WASM) Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { margin-bottom: 0.25rem; }
+    form, table { margin-top: 1rem; }
+    input, button { padding: 0.5rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem; }
+    .row { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <h1>SQLite-in-the-browser Demo</h1>
+  <p>This page runs real SQL entirely in your browser using <code>sql.js</code> (SQLite → WebAssembly). Data persists locally.</p>
+
+  <div class="row">
+    <button id="reset">Reset DB</button>
+    <button id="export">Export .sqlite</button>
+    <input id="sql" size="60" placeholder="SELECT * FROM notes ORDER BY id DESC;" />
+    <button id="run">Run SQL</button>
+  </div>
+
+  <form id="add-form">
+    <div class="row">
+      <input id="title" placeholder="Title" required />
+      <input id="content" placeholder="Content" required />
+      <button>Add Note</button>
+    </div>
+  </form>
+
+  <h3>Results</h3>
+  <div id="out"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js" integrity="sha512-3m8+3w0uRaf8oQw7h2Kf4Y3tddp9k2l8d8m0NhN7f8i8m2t8d2V8Aq3H1c2m0pG8qYpXJfGqk0xN1g8Z7j2YxA==" crossorigin="anonymous"></script>
+  <script>
+    const LS_KEY = "demo_sqlite_db_v1";
+
+    // Load/Save helpers (uses localStorage for simplicity)
+    function saveDB(db) {
+      const data = db.export(); // Uint8Array
+      const b64 = btoa(String.fromCharCode(...data));
+      localStorage.setItem(LS_KEY, b64);
+    }
+    function loadDBBytes() {
+      const b64 = localStorage.getItem(LS_KEY);
+      if (!b64) return null;
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return arr;
+    }
+
+    (async () => {
+      const SQL = await initSqlJs({
+        locateFile: (file) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${file}`
+      });
+
+      // Initialize DB (from storage or fresh)
+      const bytes = loadDBBytes();
+      const db = bytes ? new SQL.Database(bytes) : new SQL.Database();
+
+      // First-time schema
+      if (!bytes) {
+        db.run(`
+          CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+          );
+          INSERT INTO notes (title, content) VALUES
+            ('Hello', 'This is SQLite running in your browser');
+        `);
+        saveDB(db);
+      }
+
+      const out = document.getElementById("out");
+      const sqlInput = document.getElementById("sql");
+      const addForm = document.getElementById("add-form");
+
+      function renderQuery(sql, params = []) {
+        try {
+          const res = db.exec(sql, params); // [{columns, values}]
+          if (!res.length) { out.innerHTML = "<em>(no rows)</em>"; return; }
+          const { columns, values } = res[0];
+          const header = `<tr>${columns.map(c => `<th>${c}</th>`).join("")}</tr>`;
+          const rows = values.map(row => `<tr>${row.map(v => `<td>${v ?? ""}</td>`).join("")}</tr>`).join("");
+          out.innerHTML = `<table>${header}${rows}</table>`;
+        } catch (e) {
+          out.innerHTML = `<pre style="color:red">${e.message}</pre>`;
+        }
+      }
+
+      // Initial query
+      sqlInput.value = "SELECT * FROM notes ORDER BY id DESC;";
+      renderQuery(sqlInput.value);
+
+      // Add note (CRUD example)
+      addForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const title = document.getElementById("title").value.trim();
+        const content = document.getElementById("content").value.trim();
+        if (!title || !content) return;
+
+        db.run("INSERT INTO notes (title, content) VALUES (?, ?);", [title, content]);
+        saveDB(db);
+        renderQuery(sqlInput.value);
+        addForm.reset();
+      });
+
+      // Run arbitrary SQL
+      document.getElementById("run").onclick = () => renderQuery(sqlInput.value);
+
+      // Reset DB to fresh state
+      document.getElementById("reset").onclick = () => {
+        db.run("DROP TABLE IF EXISTS notes;");
+        db.run(`CREATE TABLE notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));`);
+        db.run(`INSERT INTO notes (title, content) VALUES ('Hello', 'Fresh db');`);
+        saveDB(db);
+        renderQuery("SELECT * FROM notes ORDER BY id DESC;");
+      };
+
+      // Export .sqlite file
+      document.getElementById("export").onclick = () => {
+        const data = db.export();
+        const blob = new Blob([data], { type: "application/octet-stream" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "demo.sqlite";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      };
+    })();
+  </script>
+</body>
+</html>
