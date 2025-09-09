@@ -1,4 +1,3 @@
-<script>
 (function () {
   function start() {
     window.App.DB.init(function (err, dbApi) {
@@ -17,4 +16,3 @@
     start();
   }
 })();
-</script>
