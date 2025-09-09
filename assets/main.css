@@ -1,0 +1,7 @@
+body { font-family: system-ui, Arial, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+h1 { margin-bottom: 0.25rem; }
+form, table { margin-top: 1rem; }
+input, button { padding: 0.5rem; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ddd; padding: 0.5rem; }
+.row { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
