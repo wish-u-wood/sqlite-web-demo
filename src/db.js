@@ -1,4 +1,3 @@
-<script>
 (function () {
   var SQL_JS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2";
   var SQL = null, db = null;
@@ -73,4 +72,3 @@
   window.App = window.App || {};
   window.App.DB = api;
 })();
-</script>
