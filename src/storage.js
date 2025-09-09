@@ -1,5 +1,5 @@
 (function () {
-  var LS_KEY = "demo_sqlite_db_v1";
+  var LS_KEY = (window.App && window.App.Config && window.App.Config.LS_KEY) || "demo_sqlite_db_v1";
 
   function saveDBBytes(u8) {
     var s = "";
